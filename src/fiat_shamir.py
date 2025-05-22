@@ -25,11 +25,11 @@ class FiatShamirVerifier:
         self.state = poseidon2_permutation((self.state[0], self.state[1], Fp(0), Fp(0)))[:2]
         return challenge
 
-    def random_bits(self, n: int) -> List[bool]:
-        assert (n < P_BITS)
-        scalar = self.random_scalar()
-        # Not very recursion friendly, requires to decompose a field element into P_BITS individual bits.
-        [(scalar.value >> i) & 1 for i in range(n)]
+    def random_index(self, bits: int) -> int:
+        # Not very recursion friendly, requires to decompose a field element into individual bits
+        assert (bits < P_BITS)
+        self.random_scalar().value % (1 << bits)
+        
 
     def pow_grinding(self, bits: int):
         _ = self.random_scalar()  # nonce
