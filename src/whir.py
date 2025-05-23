@@ -23,10 +23,6 @@ class RoundParams:
 class WhirParams:
     initial_ood_samples: int
     rounds: List[RoundParams]
-    final_queries: int
-    final_sumcheck_rounds: int
-    final_combination_pow_bits: int
-    final_folding_pow_bits: int
 
 
 @dataclass
@@ -79,15 +75,17 @@ def whir_verify(params: WhirParams, fs: FiatShamirVerifier, commitment: ParsedCo
         ood_answers = [fs.receive_scalars_ext(1)[0] for _ in round.ood_samples]
 
         # 5. Shift queries
-        group_gen = EF.from_base(F.two_addic_generator(round.domain_size - round.folding_factor))
+        query_domain = round.domain_size - round.folding_factor
+        group_gen = EF.from_base(F.two_addic_generator(query_domain))
         z_is = []
         folded_evals = []
         for _ in range(round.num_queries):
-            index = fs.random_index(round.domain_size - round.folding_factor)
+            index = fs.random_index(query_domain)
             z_i = group_gen ** index
-            leaf: Union[List[F], List[EF]] = fs.receive_scalars_base(2 ** round.folding_factor) if round == 0 else fs.receive_scalars_ext(2 ** round.folding_factor)
-            auth_path = fs.receive_scalars_base(round.domain_size * DIGEST_LEN)
-            verify_merkle_path(merkle_root, index, leaf, auth_path, round.domain_size)
+            leaf: Union[List[F], List[EF]] = fs.receive_scalars_base(
+                2 ** round.folding_factor) if round == 0 else fs.receive_scalars_ext(2 ** round.folding_factor)
+            auth_path = fs.receive_scalars_base(query_domain * DIGEST_LEN)
+            verify_merkle_path(merkle_root, index, leaf, auth_path, query_domain)
             folded_eval = MultilinearCoeffs(list_to_ext_field(leaf)).evaluate(folding_randomness)
             z_is.append(multilinear_point_from_univariate(z_i))
             folded_evals.append(folded_eval)
