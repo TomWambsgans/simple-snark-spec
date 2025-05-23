@@ -75,6 +75,18 @@ def eq_extension(s1: List[EF], s2: List[EF]) -> EF:
     return result
 
 
+def fold_rectangular(multilinear: MultilinearEvals, scalars: List[EF]) -> MultilinearEvals:
+    new_size = len(multilinear.evals) // len(scalars)
+    new_evals = [EF.zero() for _ in range(new_size)]
+    for i in range(new_size):
+        new_evals[i] = sum(scalars[j] * multilinear.evals[i + j * new_size] for j in range(len(scalars)))
+    return MultilinearEvals(new_evals)
+
+
+def dot_product(a: List[EF], b: List[EF]) -> EF:
+    sum(x * y for x, y in zip(a, b))
+
+
 Op = Literal["const", "input", "add", "mul"]
 
 
@@ -121,6 +133,7 @@ class ArithmeticCircuit:
         right = [ArithmeticCircuit.var(i + n) for i in range(n)]
         return ArithmeticCircuit._eq_extension(left, right)
 
+    @staticmethod
     def eq_extension_n_scalars(self, scalars: List[EF]) -> "ArithmeticCircuit":
         # eq(scalars, Xs) = ((scalars[0] X0 + (scalars[0] - 1) (X0 - 1)) * ((scalars[1] X1 + (scalars[1] - 1) (X1 - 1)) ...
         left = [ArithmeticCircuit.var(i) for i in range(len(scalars))]
@@ -162,9 +175,11 @@ class ArithmeticCircuit:
             result += g(k)
         return result
 
+    @staticmethod
     def matrix_up_lde(n: int) -> "ArithmeticCircuit":
         return ArithmeticCircuit.eq_extension_2n_vars(n) + ArithmeticCircuit.eq_extension_n_scalars([EF.one() for _ in (2 * n - 1)]) * (ArithmeticCircuit.const(EF.one()) -
-                                                                                                                                     ArithmeticCircuit.var(2 * n - 1) * ArithmeticCircuit.const(EF.from_base(F(2))))
+                                                                                                                                        ArithmeticCircuit.var(2 * n - 1) * ArithmeticCircuit.const(EF.from_base(F(2))))
 
+    @staticmethod
     def matrix_down_lde(n: int) -> "ArithmeticCircuit":
         return ArithmeticCircuit.next(n) + ArithmeticCircuit.eq_extension_n_scalars([EF.one() for _ in (2 * n)])
