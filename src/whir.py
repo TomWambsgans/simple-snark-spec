@@ -42,17 +42,19 @@ def whir_parse_commitment(params: WhirParams, fs: FiatShamirVerifier) -> ParsedC
     return ParsedCommitment(merkle_root, ood_points, ood_answers)
 
 
-def whir_verify(params: WhirParams, fs: FiatShamirVerifier, commitment: ParsedCommitment, point: List[Fp], value: Fp):
-    assert len(point) == params.rounds[0].n_variables
-    evaluation_points = [commitment.ood_points + [point]]
+def whir_verify(params: WhirParams, fs: FiatShamirVerifier, commitment: ParsedCommitment, eval: Evaluation):
+    assert len(eval.point) == params.rounds[0].n_variables
+    evaluation_points = [commitment.ood_points + [eval.point]]
     combination_randomness = []
-    expected_evals = commitment.ood_answers + [value]
+    expected_evals = commitment.ood_answers + [eval.value]
     merkle_root = commitment.merkle_root
     expected_sumcheck_output = Fp(0)
     all_folding_randomness = []
+
     for round in params.rounds:
 
         # 0. Combination randomness
+        fs.pow_grinding(round.combination_pow_bits)
         combination_randomness_gen = fs.random_scalar()
         expected_sumcheck_output += [r * combination_randomness_gen ** i for i, r in enumerate(expected_evals)]
         folding_randomness = []
@@ -70,14 +72,13 @@ def whir_verify(params: WhirParams, fs: FiatShamirVerifier, commitment: ParsedCo
         folded_merkle_root = fs.receive_scalars(2)
 
         # 3. Out-of-domain sample
-        ood_points = [fs.random_scalar() for _ in round.ood_samples]
+        ood_points = [multilinear_point_from_univariate(fs.random_scalar()) for _ in round.ood_samples]
 
         # 4. Out-of-domain answers
         ood_answers = [fs.receive_scalars(1)[0] for _ in round.ood_samples]
 
         # 5. Shift queries
         group_gen = Fp.two_addic_generator(round.domain_size - round.folding_factor)
-
         z_is = []
         folded_evals = []
         for _ in range(round.num_queries):
@@ -86,8 +87,8 @@ def whir_verify(params: WhirParams, fs: FiatShamirVerifier, commitment: ParsedCo
             merkle_branch = fs.receive_scalars(2 ** round.folding_factor + round.domain_size)
             (leaf, auth_path) = merkle_branch[:2 ** round.folding_factor], merkle_branch[2 ** round.folding_factor:]
             verify_merkle_path(merkle_root, index, leaf, auth_path, round.domain_size)
-            folded_eval = MultilinearPolynomial(leaf).evaluate(folding_randomness)
-            z_is.append(z_i)
+            folded_eval = MultilinearCoeffs(leaf).evaluate(folding_randomness)
+            z_is.append(multilinear_point_from_univariate(z_i))
             folded_evals.append(folded_eval)
 
         merkle_root = folded_merkle_root
