@@ -1,15 +1,17 @@
-from typing import Tuple
 from finite_field import *
+from typing import Annotated, List, Literal
 
-PermutationState = Tuple[Fp, Fp, Fp, Fp]
+POSEIDON_WIDTH = 16
+DIGEST_LEN = POSEIDON_WIDTH // 2
+
+PermutationState = Annotated[List[F], Literal[POSEIDON_WIDTH]]
+Digest = Annotated[List[F], Literal[DIGEST_LEN]]
 
 
 def poseidon2_permutation(state: PermutationState) -> PermutationState:
     # TODO
     # Dummy permutation for now:
-    s1, s2, s3, s4 = state
-    o1 = s1 + s2 * Fp(785) + s3 * Fp(123) + s4 * Fp(456)
-    o2 = s1 * Fp(789) + s2 + s3 * Fp(321) + s4 * Fp(654)
-    o3 = s1 * Fp(159) + s2 * Fp(753) + s3 + s4 * Fp(951)
-    o4 = s1 * Fp(357) + s2 * Fp(159) + s3 * Fp(753) + s4
-    return o1*o2, o3*o4, o1*o1, o4*o4
+    res = [state[(i + 1) % len(state)] for i in range(len(state))]
+    for i in range(len(res)):
+        res[i] *= F(i+1) * res[(i+1) % len(res)]
+    return res
